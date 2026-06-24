@@ -2,11 +2,23 @@
 
 .readerCol { display:flex; flex-direction:column; overflow:hidden; }
 .topBar    { display:flex; align-items:flex-start; gap:1.2rem; padding:.8rem 1.4rem; background:var(--white); border-bottom:1.5px solid var(--cream-dark); flex-shrink:0; }
-.back      { display:flex; align-items:center; gap:.35rem; font-size:.8rem; color:var(--ink-muted); white-space:nowrap; padding-top:.15rem; text-decoration:none; }
+.back      { display:flex; align-items:center; gap:.35rem; font-size:.8rem; color:var(--ink-muted); white-space:nowrap; padding-top:.15rem; text-decoration:none; flex-shrink:0; }
 .back:hover{ color:var(--accent); text-decoration:none; }
+.meta      { flex:1; }
 .title     { font-size:1.05rem; margin-bottom:.35rem; }
 .ratingRow { display:flex; align-items:center; flex-wrap:wrap; gap:.75rem; }
 .rateLabel { font-size:.78rem; color:var(--ink-muted); }
+
+.deleteBtn {
+  display:flex; align-items:center; gap:.4rem;
+  padding:.45rem .9rem; border-radius:var(--radius-sm);
+  background:#fdecea; color:var(--danger);
+  font-size:.82rem; font-weight:600;
+  border:1.5px solid #f5c6c6;
+  transition:background .15s; flex-shrink:0; align-self:center;
+}
+.deleteBtn:hover:not(:disabled) { background:#f8b4b4; }
+.deleteBtn:disabled { opacity:.5; cursor:not-allowed; }
 
 .aside  { border-left:1.5px solid var(--cream-dark); background:var(--white); padding:1.25rem; overflow-y:auto; display:flex; flex-direction:column; gap:.75rem; }
 .cover  { width:100%; max-height:210px; object-fit:cover; border-radius:var(--radius-sm); pointer-events:none; }

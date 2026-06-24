@@ -7,6 +7,28 @@ const routes    = require('./routes');
 
 const app  = express();
 const PORT = process.env.PORT || 4000;
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
+});
+
+const cors = require('cors');
+
+const allowedOrigins = [
+  'http://localhost:5173', // frontend local
+  process.env.FRONTEND_URL // La URL de Vercel
+];
+
+app.use(cors({
+  origin: function (origin, callback) {
+    // Permitir peticiones sin origen
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Bloqueado por CORS'));
+    }
+  },
+  credentials: true
+}));
 
 // Sin helmet — manejamos headers manualmente
 app.use((req, res, next) => {
