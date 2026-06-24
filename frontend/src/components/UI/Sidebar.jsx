@@ -9,7 +9,7 @@ export default function Sidebar() {
     <aside className={styles.sidebar}>
       <div className={styles.logo}>
         <span className={styles.icon}>✦</span>
-        <span className={styles.name}>Portafolio</span>
+        <span className={styles.name}>Poemas</span>
       </div>
 
       <nav className={styles.nav}>
