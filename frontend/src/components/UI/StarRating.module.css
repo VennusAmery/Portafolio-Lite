@@ -1,0 +1,5 @@
+.wrap  { display: flex; align-items: center; gap: 1px; }
+.star  { font-size: 1.1rem; color: var(--shelf); line-height: 1; padding: 0 1px; transition: color .1s; }
+.on    { color: var(--gold); }
+button.star:disabled { cursor: default; }
+.count { font-size: .76rem; color: var(--ink-muted); margin-left: 5px; }

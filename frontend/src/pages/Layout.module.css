@@ -1,0 +1,2 @@
+.app     { display: flex; min-height: 100vh; }
+.content { margin-left: var(--sidebar-w); flex: 1; min-width: 0; }
