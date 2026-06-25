@@ -9,106 +9,118 @@ pdfjsLib.GlobalWorkerOptions.workerSrc =
 const BASE = import.meta.env.VITE_UPLOADS_URL || 'http://localhost:4000';
 
 export default function PDFReader({ pdfPath }) {
-  const wrapRef   = useRef(null);
-  const pdfRef    = useRef(null);
+  const containerRef = useRef(null);
+  const [pdf,     setPdf]     = useState(null);
   const [total,   setTotal]   = useState(0);
   const [current, setCurrent] = useState(1);
   const [scale,   setScale]   = useState(1.2);
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(false);
 
-  // Cargar PDF y renderizar todas las páginas
+  // 1. Cargar PDF
   useEffect(() => {
     if (!pdfPath) return;
+    setPdf(null);
     setError(false);
     setLoading(true);
-    pdfRef.current = null;
+    setTotal(0);
 
     const url = `${BASE}${pdfPath.startsWith('/') ? pdfPath : '/' + pdfPath}`;
+    console.log('Cargando PDF:', url);
 
     pdfjsLib.getDocument({ url }).promise
-      .then(pdf => {
-        pdfRef.current = pdf;
-        setTotal(pdf.numPages);
+      .then(doc => {
+        console.log('PDF cargado, páginas:', doc.numPages);
+        setPdf(doc);
+        setTotal(doc.numPages);
       })
       .catch(err => {
-        console.error('PDF load error:', err);
+        console.error('Error cargando PDF:', err);
         setError(true);
         setLoading(false);
       });
   }, [pdfPath]);
 
-  // Renderizar todas las páginas cuando el PDF carga o cambia el scale
+  // 2. Renderizar todas las páginas cuando pdf cambia o scale cambia
   useEffect(() => {
-    if (!pdfRef.current || !wrapRef.current) return;
-    const pdf = pdfRef.current;
+    if (!pdf || !containerRef.current) return;
+
+    let cancelled = false;
 
     const renderAll = async () => {
       setLoading(true);
-      const container = wrapRef.current;
-      container.innerHTML = ''; // limpiar páginas anteriores
+      const container = containerRef.current;
+      container.innerHTML = '';
 
       for (let i = 1; i <= pdf.numPages; i++) {
-        const pg  = await pdf.getPage(i);
-        const vp  = pg.getViewport({ scale });
+        if (cancelled) break;
+        try {
+          const pg  = await pdf.getPage(i);
+          const vp  = pg.getViewport({ scale });
+          const div = document.createElement('div');
+          div.setAttribute('data-page', i);
+          div.style.marginBottom = '16px';
+          div.style.flexShrink   = '0';
+          div.style.boxShadow    = '0 8px 32px rgba(0,0,0,0.4)';
 
-        // Wrapper de página
-        const pageDiv = document.createElement('div');
-        pageDiv.className = styles.pageWrap;
-        pageDiv.setAttribute('data-page', i);
+          const canvas  = document.createElement('canvas');
+          canvas.width  = vp.width;
+          canvas.height = vp.height;
+          canvas.style.display = 'block';
 
-        const canvas = document.createElement('canvas');
-        canvas.width  = vp.width;
-        canvas.height = vp.height;
-        canvas.className = styles.canvas;
+          div.appendChild(canvas);
+          container.appendChild(div);
 
-        pageDiv.appendChild(canvas);
-        container.appendChild(pageDiv);
-
-        await pg.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+          if (!cancelled) {
+            await pg.render({ canvasContext: canvas.getContext('2d'), viewport: vp }).promise;
+          }
+        } catch (err) {
+          console.error(`Error en página ${i}:`, err);
+        }
       }
-      setLoading(false);
+
+      if (!cancelled) setLoading(false);
     };
 
     renderAll();
-  }, [scale, total]);
+    return () => { cancelled = true; };
+  }, [pdf, scale]);
 
-  // Detectar página actual según scroll
+  // 3. Detectar página actual por scroll
   useEffect(() => {
-    const wrap = wrapRef.current;
-    if (!wrap) return;
-
+    const container = containerRef.current;
+    if (!container) return;
     const onScroll = () => {
-      const pages = wrap.querySelectorAll(`[data-page]`);
+      const pages = container.querySelectorAll('[data-page]');
       for (const p of pages) {
         const rect = p.getBoundingClientRect();
-        if (rect.top >= 0 || rect.bottom > window.innerHeight / 2) {
+        if (rect.bottom > 0) {
           setCurrent(parseInt(p.getAttribute('data-page')));
           break;
         }
       }
     };
-    wrap.addEventListener('scroll', onScroll);
-    return () => wrap.removeEventListener('scroll', onScroll);
+    container.addEventListener('scroll', onScroll);
+    return () => container.removeEventListener('scroll', onScroll);
   }, [total]);
 
-  // Protección IP
+  // 4. Protección IP
   useEffect(() => {
-    const wrap = wrapRef.current;
-    if (!wrap) return;
+    const container = containerRef.current;
+    if (!container) return;
     const no = (e) => e.preventDefault();
-    wrap.addEventListener('contextmenu', no);
-    wrap.addEventListener('dragstart',   no);
-    wrap.addEventListener('copy',        no);
+    container.addEventListener('contextmenu', no);
+    container.addEventListener('dragstart',   no);
+    container.addEventListener('copy',        no);
     const noKey = (e) => {
       if ((e.ctrlKey || e.metaKey) && 'cusp'.includes(e.key.toLowerCase()))
         e.preventDefault();
     };
     document.addEventListener('keydown', noKey);
     return () => {
-      wrap.removeEventListener('contextmenu', no);
-      wrap.removeEventListener('dragstart',   no);
-      wrap.removeEventListener('copy',        no);
+      container.removeEventListener('contextmenu', no);
+      container.removeEventListener('dragstart',   no);
+      container.removeEventListener('copy',        no);
       document.removeEventListener('keydown', noKey);
     };
   }, []);
@@ -116,14 +128,16 @@ export default function PDFReader({ pdfPath }) {
   if (error) return (
     <div className={styles.err}>
       No se pudo cargar el PDF.
-      <small>Backend: {BASE}</small>
+      <small>URL: {BASE}{pdfPath}</small>
     </div>
   );
 
   return (
     <div className={styles.reader}>
       <div className={styles.toolbar}>
-        <span className={styles.pageInfo}>Página {current} / {total}</span>
+        <span className={styles.pageInfo}>
+          Página {current} / {total || '…'}
+        </span>
         <div className={styles.zoom}>
           <button onClick={() => setScale(s => Math.max(.5, +(s - .15).toFixed(2)))}><FiZoomOut /></button>
           <span>{Math.round(scale * 100)}%</span>
@@ -132,7 +146,11 @@ export default function PDFReader({ pdfPath }) {
         {loading && <span className={styles.loadingText}>Cargando…</span>}
       </div>
 
-      <div ref={wrapRef} className={`${styles.wrap} pdf-wrap no-sel`} />
+      <div
+        ref={containerRef}
+        className={`${styles.wrap} pdf-wrap no-sel`}
+        style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '2rem 1rem' }}
+      />
     </div>
   );
 }

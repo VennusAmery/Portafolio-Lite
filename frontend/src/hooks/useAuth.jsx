@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, useCallback } from 'react';
-import { login as loginApi } from '../services/api';
+import { login as loginApi } from '../services/api.js';
 
-const Ctx = createContext(null);
+const AuthCtx = createContext({ isAuthor: false, login: () => {}, logout: () => {} });
 
 export function AuthProvider({ children }) {
   const [isAuthor, setIsAuthor] = useState(() => !!localStorage.getItem('wp_token'));
@@ -17,7 +17,13 @@ export function AuthProvider({ children }) {
     setIsAuthor(false);
   }, []);
 
-  return <Ctx.Provider value={{ isAuthor, login, logout }}>{children}</Ctx.Provider>;
+  return (
+    <AuthCtx.Provider value={{ isAuthor, login, logout }}>
+      {children}
+    </AuthCtx.Provider>
+  );
 }
 
-export const useAuth = () => useContext(Ctx);
+export function useAuth() {
+  return useContext(AuthCtx);
+}

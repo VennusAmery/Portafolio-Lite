@@ -11,11 +11,8 @@ app.listen(PORT, '0.0.0.0', () => {
   console.log(`🚀 Servidor corriendo en el puerto ${PORT}`);
 });
 
-const cors = require('cors');
-
 const allowedOrigins = [
   'http://localhost:5173', // frontend local
-  process.env.FRONTEND_URL // La URL de Vercel
 ];
 
 app.use(cors({

@@ -10,7 +10,11 @@ export default function BookCard({ book }) {
   return (
     <Link to={`/libro/${book.id}`} className={styles.card}>
       <div className={styles.coverWrap}>
-        <img src={cover} alt={book.title} className={styles.cover} draggable={false} onContextMenu={e=>e.preventDefault()} />
+        <img src={cover} alt={book.title} className={styles.cover}
+          draggable={false} onContextMenu={e=>e.preventDefault()} />
+        {book.genre_name && (
+          <span className={styles.genre}>{book.genre_name}</span>
+        )}
         <div className={styles.overlay}><span className={styles.readBtn}>Leer →</span></div>
       </div>
       <div className={styles.info}>

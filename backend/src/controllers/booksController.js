@@ -2,7 +2,6 @@ const db   = require('../config/db');
 const path = require('path');
 const fs   = require('fs');
 
-// GET /api/books
 exports.list = async (req, res) => {
   try {
     const conditions = ['1=1'];
@@ -11,6 +10,10 @@ exports.list = async (req, res) => {
     if (req.query.search) {
       conditions.push('(b.title LIKE ? OR b.description LIKE ?)');
       params.push(`%${req.query.search}%`, `%${req.query.search}%`);
+    }
+    if (req.query.genre_id) {
+      conditions.push('b.genre_id = ?');
+      params.push(parseInt(req.query.genre_id));
     }
     if (req.query.date_from) { conditions.push('b.published_at >= ?'); params.push(req.query.date_from); }
     if (req.query.date_to)   { conditions.push('b.published_at <= ?'); params.push(req.query.date_to); }
@@ -29,14 +32,15 @@ exports.list = async (req, res) => {
     const offset = (page - 1) * limit;
     const where  = conditions.join(' AND ');
 
-    // Usar db.query (no execute) + LIMIT/OFFSET como literales
     const [rows] = await db.query(
       `SELECT b.id, b.title, b.description, b.cover_url,
               b.published_at, b.view_count, b.created_at,
+              g.name AS genre_name,
               COALESCE(v.avg_stars, 0)     AS avg_stars,
               COALESCE(v.total_ratings, 0) AS total_ratings
        FROM books b
-       LEFT JOIN v_book_ratings v ON v.book_id = b.id
+       LEFT JOIN genres g          ON g.id = b.genre_id
+       LEFT JOIN v_book_ratings v  ON v.book_id = b.id
        WHERE ${where}
        ORDER BY ${orderBy}
        LIMIT ${limit} OFFSET ${offset}`,
@@ -44,8 +48,7 @@ exports.list = async (req, res) => {
     );
 
     const [[{ total }]] = await db.query(
-      `SELECT COUNT(*) AS total FROM books b WHERE ${where}`,
-      params
+      `SELECT COUNT(*) AS total FROM books b WHERE ${where}`, params
     );
 
     res.json({ data: rows, meta: { page, limit, total, pages: Math.ceil(total / limit) } });
@@ -55,12 +58,14 @@ exports.list = async (req, res) => {
   }
 };
 
-// GET /api/books/:id
 exports.getOne = async (req, res) => {
   try {
     const [[book]] = await db.query(
-      `SELECT b.*, COALESCE(v.avg_stars,0) AS avg_stars, COALESCE(v.total_ratings,0) AS total_ratings
+      `SELECT b.*, g.name AS genre_name,
+              COALESCE(v.avg_stars,0)     AS avg_stars,
+              COALESCE(v.total_ratings,0) AS total_ratings
        FROM books b
+       LEFT JOIN genres g         ON g.id = b.genre_id
        LEFT JOIN v_book_ratings v ON v.book_id = b.id
        WHERE b.id = ?`,
       [req.params.id]
@@ -74,10 +79,9 @@ exports.getOne = async (req, res) => {
   }
 };
 
-// POST /api/books (author only)
 exports.create = async (req, res) => {
   try {
-    const { title, description, published_at } = req.body;
+    const { title, description, published_at, genre_id } = req.body;
     const pdfFile   = req.files?.pdf?.[0];
     const coverFile = req.files?.cover?.[0];
 
@@ -85,13 +89,14 @@ exports.create = async (req, res) => {
     if (!pdfFile)       return res.status(400).json({ error: 'PDF requerido' });
 
     const [result] = await db.query(
-      `INSERT INTO books (title, description, cover_url, pdf_path, published_at)
-       VALUES (?, ?, ?, ?, ?)`,
+      `INSERT INTO books (title, description, cover_url, pdf_path, genre_id, published_at)
+       VALUES (?, ?, ?, ?, ?, ?)`,
       [
         title.trim(),
         description?.trim() || null,
         coverFile ? `/uploads/covers/${coverFile.filename}` : null,
         `/uploads/pdfs/${pdfFile.filename}`,
+        genre_id ? parseInt(genre_id) : null,
         published_at || null,
       ]
     );
@@ -102,7 +107,6 @@ exports.create = async (req, res) => {
   }
 };
 
-// DELETE /api/books/:id (author only)
 exports.remove = async (req, res) => {
   try {
     const [[book]] = await db.query('SELECT * FROM books WHERE id = ?', [req.params.id]);
